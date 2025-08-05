@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 import random
+import copy
 
 class TicTacToeBotGame:
     def __init__(self, root):
@@ -56,14 +57,74 @@ class TicTacToeBotGame:
         if self.current_player != self.bot_symbol:
             return
 
-        empty = [(r, c) for r in range(3) for c in range(3) if self.board[r][c] == ""]
-        if empty:
-            row, col = random.choice(empty)
-            self.make_move(row, col, self.bot_symbol)
+        best_score = float('-inf')
+        best_move = None
+
+        for r in range(3):
+            for c in range(3):
+                if self.board[r][c] == "":
+                    self.board[r][c] = self.bot_symbol
+                    score = self.minimax(self.board, 0, False, self.bot_symbol, self.player_symbol, depth_limit=1)
+                    self.board[r][c] = ""
+                    if score > best_score:
+                        best_score = score
+                        best_move = (r, c)
+
+        if best_move:
+            self.make_move(best_move[0], best_move[1], self.bot_symbol)
 
         if not self.check_endgame(self.bot_symbol):
             self.current_player = self.player_symbol
             self.update_status()
+
+    def minimax(self, board, depth, is_maximizing, bot_symbol, player_symbol, depth_limit):
+        winner = self.get_winner(board)
+        if winner == bot_symbol:
+            return 10 - depth
+        elif winner == player_symbol:
+            return depth - 10
+
+        if depth >= depth_limit:
+            return 0  # Don't evaluate further (treat as neutral)
+
+        if is_maximizing:
+            best_score = -float("inf")
+            for i in range(3):
+                for j in range(3):
+                    if board[i][j] == "":
+                        board[i][j] = bot_symbol
+                        score = self.minimax(self.board, depth + 1, False, self.bot_symbol, self.player_symbol, depth_limit)
+                        board[i][j] = ""
+                        best_score = max(score, best_score)
+            return best_score
+        else:
+            best_score = float("inf")
+            for i in range(3):
+                for j in range(3):
+                    if board[i][j] == "":
+                        board[i][j] = player_symbol
+                        score = self.minimax(board, depth + 1, True, bot_symbol, player_symbol, depth_limit)
+                        board[i][j] = ""
+                        best_score = min(score, best_score)
+            return best_score
+
+
+    def get_winner(self, board):
+        lines = []
+
+        # Rows and Columns
+        for i in range(3):
+            lines.append(board[i])  # row
+            lines.append([board[0][i], board[1][i], board[2][i]])  # col
+
+        # Diagonals
+        lines.append([board[0][0], board[1][1], board[2][2]])
+        lines.append([board[0][2], board[1][1], board[2][0]])
+
+        for line in lines:
+            if line[0] != "" and line[0] == line[1] == line[2]:
+                return line[0]
+        return None
 
     def make_move(self, row, col, symbol):
         self.board[row][col] = symbol
@@ -86,7 +147,6 @@ class TicTacToeBotGame:
 
     def check_winner(self, symbol):
         b = self.board
-        # Rows, Columns, Diagonals
         return any(all(b[r][c] == symbol for c in range(3)) for r in range(3)) or \
                any(all(b[r][c] == symbol for r in range(3)) for c in range(3)) or \
                all(b[i][i] == symbol for i in range(3)) or \
